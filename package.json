@@ -1,0 +1,44 @@
+{
+  "name": "@anteo/yaak-plugin-openapi-sync",
+  "displayName": "OpenAPI sync",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Sync a Yaak workspace with a remote OpenAPI specification",
+  "author": "Anton Argirov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anteo/yaak-plugin-openapi-sync.git"
+  },
+  "scripts": {
+    "build": "yaak plugin build",
+    "dev": "yaak plugin dev",
+    "test": "vitest run",
+    "release": "release-it"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "release-it": "^20.2.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  },
+  "dependencies": {
+    "@yaakapp/api": "^0.8.0",
+    "openapi-to-postmanv2": "^6.1.0"
+  },
+  "release-it": {
+    "git": {
+      "commitMessage": "chore: release v${version}",
+      "tagName": "v${version}",
+      "requireCleanWorkingDir": true,
+      "requireBranch": "main"
+    },
+    "npm": {
+      "publish": false
+    },
+    "hooks": {
+      "before:init": "npm test",
+      "after:git:release": "yaak plugin publish"
+    }
+  }
+}
