@@ -8,7 +8,7 @@ Yaak plugin that compares the active workspace with a remote OpenAPI document an
 - Fetches an OpenAPI spec from a remote URL
 - Converts the spec into Yaak HTTP request resources
 - Compares endpoints against the current workspace by normalized `METHOD + path`
-- Detects missing URL parameters on matching requests
+- Detects parameter additions and parameter deletions on matching requests
 - Shows a review dialog before applying changes
 
 ## Review behavior
@@ -18,7 +18,8 @@ Yaak plugin that compares the active workspace with a remote OpenAPI document an
 - Checkbox rows use skip semantics:
   - `Skip /path [METHOD]` under additions means leave it unchecked to add the request
   - `/path [METHOD]` under deletions means check it to delete that request
-  - `Skip /path [METHOD] (+N params)` under parameter updates means check it to avoid adding those missing parameters
+  - `Skip /path [METHOD] (+ param1, param2)` under parameter additions means check it to avoid adding those missing parameters
+  - `/path [METHOD] (- param1, param2)` under parameter deletions means check it to delete those parameters
 - If no changes are found, the dialog still shows the result and no apply step is performed
 
 ## Scope
@@ -28,10 +29,12 @@ Yaak plugin that compares the active workspace with a remote OpenAPI document an
   - endpoint additions
   - endpoint deletions
   - missing path/query parameters on existing matching requests
-- Parameter sync is additive only:
+  - extra path/query parameters on existing matching requests
+- Parameter additions preserve existing values:
   - existing parameter values are preserved
-  - existing parameters are not removed
   - existing parameters are not overwritten
+- Parameter deletions are opt-in only:
+  - no parameter is removed unless it is explicitly selected in the review dialog
 - Does not sync field-level request edits yet
 - Does not sync GraphQL, gRPC, or WebSocket resources
 
