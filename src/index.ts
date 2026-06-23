@@ -4,6 +4,7 @@ import type {
   DynamicPromptFormArg,
   Folder,
   HttpRequest,
+  HttpUrlParameter,
   PartialImportResources,
   PluginDefinition,
   WorkspaceActionPlugin,
@@ -23,9 +24,16 @@ type DiffEntry = {
   path: string;
   request: RequestResource;
 };
+type ParamUpdateEntry = {
+  key: string;
+  label: string;
+  requestId: string;
+  missingParams: HttpUrlParameter[];
+};
 type EndpointDiff = {
   added: DiffEntry[];
   deleted: DiffEntry[];
+  paramUpdates: ParamUpdateEntry[];
 };
 
 const LAST_URL_STORE_KEY = "openapi-sync.last-url";
@@ -101,8 +109,15 @@ function createSyncAction(): WorkspaceActionPlugin {
       const deletedKeys = new Set(selection.deletedKeys);
       const selectedAdded = diff.added.filter((entry) => addedKeys.has(entry.key));
       const selectedDeleted = diff.deleted.filter((entry) => deletedKeys.has(entry.key));
+      const selectedParamUpdates = diff.paramUpdates.filter((entry) =>
+        selection.paramUpdateKeys.has(entry.key),
+      );
 
-      if (selectedAdded.length === 0 && selectedDeleted.length === 0) {
+      if (
+        selectedAdded.length === 0 &&
+        selectedDeleted.length === 0 &&
+        selectedParamUpdates.length === 0
+      ) {
         await ctx.toast.show({
           color: "info",
           message: "No changes selected",
@@ -116,11 +131,14 @@ function createSyncAction(): WorkspaceActionPlugin {
         existingFolders,
         added: selectedAdded,
         deleted: selectedDeleted,
+        paramUpdates: selectedParamUpdates,
       });
 
       await ctx.toast.show({
         color: "success",
-        message: `OpenAPI sync applied ${applyResult.added} additions and ${applyResult.deleted} deletions`,
+        message:
+          `OpenAPI sync applied ${applyResult.added} additions, ` +
+          `${applyResult.deleted} deletions, and ${applyResult.paramUpdates} parameter updates`,
       });
     },
   };
@@ -218,8 +236,29 @@ export function diffWorkspaceEndpoints(args: {
     .filter(([key]) => !importedByKey.has(key))
     .map(([, entry]) => entry)
     .sort(sortDiffEntries);
+  const paramUpdates = [...existingByKey.entries()]
+    .filter(([key]) => importedByKey.has(key))
+    .map(([, existingEntry]) => {
+      const importedEntry = importedByKey.get(existingEntry.key);
+      if (importedEntry == null || existingEntry.request.id == null) return null;
 
-  return { added, deleted };
+      const missingParams = getMissingParams(
+        existingEntry.request.urlParameters ?? [],
+        importedEntry.request.urlParameters ?? [],
+      );
+      if (missingParams.length === 0) return null;
+
+      return {
+        key: existingEntry.key,
+        label: `${existingEntry.label} (+${missingParams.length} params)`,
+        requestId: existingEntry.request.id,
+        missingParams,
+      } satisfies ParamUpdateEntry;
+    })
+    .filter((entry): entry is ParamUpdateEntry => entry != null)
+    .sort((a, b) => a.key.localeCompare(b.key));
+
+  return { added, deleted, paramUpdates };
 }
 
 function sortDiffEntries(a: DiffEntry, b: DiffEntry): number {
@@ -328,8 +367,9 @@ async function promptForSelection(
   ctx: Context,
   specUrl: string,
   diff: EndpointDiff,
-): Promise<{ addedKeys: string[]; deletedKeys: string[] } | null> {
-  const hasChanges = diff.added.length > 0 || diff.deleted.length > 0;
+): Promise<{ addedKeys: string[]; deletedKeys: string[]; paramUpdateKeys: Set<string> } | null> {
+  const hasChanges =
+    diff.added.length > 0 || diff.deleted.length > 0 || diff.paramUpdates.length > 0;
   const inputs: DynamicPromptFormArg[] = [
     {
       type: "markdown",
@@ -338,7 +378,8 @@ async function promptForSelection(
         "",
         `Added endpoints: **${diff.added.length}**`,
         `Deleted endpoints: **${diff.deleted.length}**`,
-        ...(hasChanges ? [] : ["", "No endpoint additions or deletions were found."]),
+        `Parameter updates: **${diff.paramUpdates.length}**`,
+        ...(hasChanges ? [] : ["", "No endpoint or parameter changes were found."]),
       ].join("\n"),
     },
   ];
@@ -368,6 +409,18 @@ async function promptForSelection(
     });
   }
 
+  if (diff.paramUpdates.length > 0) {
+    inputs.push({
+      type: "accordion",
+      label: `Skip parameter updates (${diff.paramUpdates.length})`,
+      inputs: diff.paramUpdates.map((entry) => ({
+        type: "checkbox",
+        name: checkboxName("params", entry.key),
+        label: `Skip ${entry.label}`,
+      })),
+    });
+  }
+
   const values = await ctx.prompt.form({
     id: "openapi-sync.review",
     title: "Review OpenAPI Changes",
@@ -386,10 +439,15 @@ async function promptForSelection(
     deletedKeys: diff.deleted
       .filter((entry) => values[checkboxName("delete", entry.key)] === true)
       .map((entry) => entry.key),
+    paramUpdateKeys: new Set(
+      diff.paramUpdates
+        .filter((entry) => values[checkboxName("params", entry.key)] !== true)
+        .map((entry) => entry.key),
+    ),
   };
 }
 
-function checkboxName(prefix: "add" | "delete", key: string): string {
+function checkboxName(prefix: "add" | "delete" | "params", key: string): string {
   return `${prefix}:${key}`;
 }
 
@@ -401,9 +459,10 @@ async function applySelectedChanges(
     existingFolders: Folder[];
     added: DiffEntry[];
     deleted: DiffEntry[];
+    paramUpdates: ParamUpdateEntry[];
   },
-): Promise<{ added: number; deleted: number }> {
-  const { workspaceId, existingRequests, existingFolders, added, deleted } = args;
+): Promise<{ added: number; deleted: number; paramUpdates: number }> {
+  const { workspaceId, existingRequests, existingFolders, added, deleted, paramUpdates } = args;
   const workspaceFolders = existingFolders.filter((folder) => folder.workspaceId === workspaceId);
   const workspaceRequests = existingRequests.filter((request) => request.workspaceId === workspaceId);
   const folderPathById = buildExistingFolderPathMap(workspaceFolders);
@@ -430,7 +489,42 @@ async function applySelectedChanges(
     }
   }
 
-  return { added: added.length, deleted: deleted.length };
+  for (const entry of paramUpdates) {
+    const existingRequest = workspaceRequests.find((request) => request.id === entry.requestId);
+    if (existingRequest == null) continue;
+    await ctx.httpRequest.update({
+      id: existingRequest.id,
+      workspaceId: existingRequest.workspaceId,
+      folderId: existingRequest.folderId,
+      authentication: existingRequest.authentication,
+      authenticationType: existingRequest.authenticationType,
+      body: existingRequest.body,
+      bodyType: existingRequest.bodyType,
+      description: existingRequest.description,
+      headers: existingRequest.headers,
+      method: existingRequest.method,
+      name: existingRequest.name,
+      sortPriority: existingRequest.sortPriority,
+      url: existingRequest.url,
+      urlParameters: [...(existingRequest.urlParameters ?? []), ...entry.missingParams],
+    });
+  }
+
+  return { added: added.length, deleted: deleted.length, paramUpdates: paramUpdates.length };
+}
+
+function getMissingParams(
+  existingParams: HttpUrlParameter[],
+  importedParams: HttpUrlParameter[],
+): HttpUrlParameter[] {
+  const existingKeys = new Set(existingParams.map(parameterKey));
+  return importedParams.filter((param) => !existingKeys.has(parameterKey(param)));
+}
+
+function parameterKey(param: HttpUrlParameter): string {
+  const name = param.name.startsWith(":") ? param.name.slice(1) : param.name;
+  const location = param.name.startsWith(":") ? "path" : "query";
+  return `${location}:${name}`;
 }
 
 function buildCreateRequest(

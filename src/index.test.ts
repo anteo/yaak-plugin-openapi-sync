@@ -113,6 +113,65 @@ describe("openapi sync plugin", () => {
 
     expect(diff.added.map((entry) => entry.key)).toEqual(["POST /pets"]);
     expect(diff.deleted.map((entry) => entry.key)).toEqual(["DELETE /pets/{petId}"]);
+    expect(diff.paramUpdates).toHaveLength(0);
+  });
+
+  test("detects missing parameters on existing requests", () => {
+    const diff = diffWorkspaceEndpoints({
+      workspaceId: "wk_1",
+      existingFolders: [],
+      existingRequests: [
+        {
+          model: "http_request",
+          id: "req_existing",
+          createdAt: "",
+          updatedAt: "",
+          workspaceId: "wk_1",
+          folderId: null,
+          authentication: {},
+          authenticationType: null,
+          body: {},
+          bodyType: null,
+          description: "",
+          headers: [],
+          method: "GET",
+          name: "List pets",
+          sortPriority: 0,
+          url: "https://api.example.com/pets",
+          urlParameters: [{ name: "limit", value: "10" }],
+        },
+      ],
+      importedFolders: [],
+      importedRequests: [
+        {
+          model: "http_request",
+          id: "import_existing",
+          workspaceId: "GENERATE_ID::workspace",
+          folderId: null,
+          name: "List pets",
+          method: "GET",
+          url: "https://service.example.com/pets",
+          urlParameters: [
+            { name: "limit", value: "" },
+            { name: "offset", value: "" },
+            { name: ":tenantId", value: "" },
+          ],
+        },
+      ],
+    });
+
+    expect(diff.added).toHaveLength(0);
+    expect(diff.deleted).toHaveLength(0);
+    expect(diff.paramUpdates).toHaveLength(1);
+    expect(diff.paramUpdates[0]).toMatchObject({
+      key: "GET /pets",
+      requestId: "req_existing",
+      label: "/pets [GET] (+2 params)",
+    });
+    expect(diff.paramUpdates[0]?.missingParams).toEqual([
+      { name: "offset", value: "" },
+      { name: ":tenantId", value: "" },
+    ]);
   });
 
   test("round trips OpenAPI fixture and exposes filtered requests", async () => {
@@ -136,5 +195,6 @@ describe("openapi sync plugin", () => {
 
     expect(diff.added.length).toBe(19);
     expect(diff.deleted.length).toBe(0);
+    expect(diff.paramUpdates.length).toBe(0);
   });
 });
