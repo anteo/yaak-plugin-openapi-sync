@@ -2,7 +2,7 @@
   "name": "@anteo/yaak-plugin-openapi-sync",
   "displayName": "OpenAPI sync",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Sync a Yaak workspace with a remote OpenAPI specification",
   "author": "Anton Argirov",
   "license": "MIT",
