@@ -113,11 +113,7 @@ function createSyncAction(): WorkspaceActionPlugin {
         selection.paramUpdateKeys.has(entry.key),
       );
 
-      if (
-        selectedAdded.length === 0 &&
-        selectedDeleted.length === 0 &&
-        selectedParamUpdates.length === 0
-      ) {
+      if (selectedAdded.length === 0 && selectedDeleted.length === 0 && selectedParamUpdates.length === 0) {
         await ctx.toast.show({
           color: "info",
           message: "No changes selected",
@@ -403,7 +399,7 @@ async function promptForSelection(
       inputs: diff.deleted.map((entry) => ({
         type: "checkbox",
         name: checkboxName("delete", entry.key),
-        label: `Skip ${entry.label}`,
+        label: entry.label,
         defaultValue: "false",
       })),
     });
@@ -474,7 +470,6 @@ async function applySelectedChanges(
   const existingRequestIdsByKey = new Map(
     workspaceRequests.map((request) => [endpointKeyForRequest(request.method, request.url), request.id]),
   );
-
   for (const entry of added) {
     const folderId = entry.folderPath
       ? await ensureFolderPath(ctx, workspaceId, entry.folderPath, folderPathToFolder)

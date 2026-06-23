@@ -17,7 +17,7 @@ Yaak plugin that compares the active workspace with a remote OpenAPI document an
 - Additions, deletions, and parameter updates are sorted by `path`, then `method`
 - Checkbox rows use skip semantics:
   - `Skip /path [METHOD]` under additions means leave it unchecked to add the request
-  - `Skip /path [METHOD]` under deletions means check it to avoid deleting that request
+  - `/path [METHOD]` under deletions means check it to delete that request
   - `Skip /path [METHOD] (+N params)` under parameter updates means check it to avoid adding those missing parameters
 - If no changes are found, the dialog still shows the result and no apply step is performed
 
