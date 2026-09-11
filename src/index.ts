@@ -438,11 +438,18 @@ async function promptForSelection(
     inputs.push({
       type: "accordion",
       label: `Skip additions (${diff.added.length})`,
-      inputs: diff.added.map((entry) => ({
-        type: "checkbox",
-        name: checkboxName("add", entry.key),
-        label: `Skip ${entry.label}`,
-      })),
+      inputs: [
+        {
+          type: "checkbox",
+          name: allCheckboxName("add"),
+          label: `Skip all additions (${diff.added.length})`,
+        },
+        ...diff.added.map((entry) => ({
+          type: "checkbox" as const,
+          name: checkboxName("add", entry.key),
+          label: `Skip ${entry.label}`,
+        })),
+      ],
     });
   }
 
@@ -450,12 +457,19 @@ async function promptForSelection(
     inputs.push({
       type: "accordion",
       label: `Delete endpoints (${diff.deleted.length})`,
-      inputs: diff.deleted.map((entry) => ({
-        type: "checkbox",
-        name: checkboxName("delete", entry.key),
-        label: entry.label,
-        defaultValue: "false",
-      })),
+      inputs: [
+        {
+          type: "checkbox",
+          name: allCheckboxName("delete"),
+          label: `Delete all endpoints (${diff.deleted.length})`,
+        },
+        ...diff.deleted.map((entry) => ({
+          type: "checkbox" as const,
+          name: checkboxName("delete", entry.key),
+          label: entry.label,
+          defaultValue: "false",
+        })),
+      ],
     });
   }
 
@@ -463,11 +477,18 @@ async function promptForSelection(
     inputs.push({
       type: "accordion",
       label: `Skip parameter additions (${diff.paramAdditions.length})`,
-      inputs: diff.paramAdditions.map((entry) => ({
-        type: "checkbox",
-        name: checkboxName("param-add", entry.key),
-        label: `Skip ${entry.label}`,
-      })),
+      inputs: [
+        {
+          type: "checkbox",
+          name: allCheckboxName("param-add"),
+          label: `Skip all parameter additions (${diff.paramAdditions.length})`,
+        },
+        ...diff.paramAdditions.map((entry) => ({
+          type: "checkbox" as const,
+          name: checkboxName("param-add", entry.key),
+          label: `Skip ${entry.label}`,
+        })),
+      ],
     });
   }
 
@@ -475,12 +496,19 @@ async function promptForSelection(
     inputs.push({
       type: "accordion",
       label: `Delete parameters (${diff.paramDeletions.length})`,
-      inputs: diff.paramDeletions.map((entry) => ({
-        type: "checkbox",
-        name: checkboxName("param-delete", entry.key),
-        label: entry.label,
-        defaultValue: "false",
-      })),
+      inputs: [
+        {
+          type: "checkbox",
+          name: allCheckboxName("param-delete"),
+          label: `Delete all parameters (${diff.paramDeletions.length})`,
+        },
+        ...diff.paramDeletions.map((entry) => ({
+          type: "checkbox" as const,
+          name: checkboxName("param-delete", entry.key),
+          label: entry.label,
+          defaultValue: "false",
+        })),
+      ],
     });
   }
 
@@ -497,16 +525,32 @@ async function promptForSelection(
 
   return {
     addedKeys: diff.added
-      .filter((entry) => values[checkboxName("add", entry.key)] !== true)
+      .filter(
+        (entry) =>
+          values[allCheckboxName("add")] !== true &&
+          values[checkboxName("add", entry.key)] !== true,
+      )
       .map((entry) => entry.key),
     deletedKeys: diff.deleted
-      .filter((entry) => values[checkboxName("delete", entry.key)] === true)
+      .filter(
+        (entry) =>
+          values[allCheckboxName("delete")] === true ||
+          values[checkboxName("delete", entry.key)] === true,
+      )
       .map((entry) => entry.key),
     paramAdditionKeys: diff.paramAdditions
-      .filter((entry) => values[checkboxName("param-add", entry.key)] !== true)
+      .filter(
+        (entry) =>
+          values[allCheckboxName("param-add")] !== true &&
+          values[checkboxName("param-add", entry.key)] !== true,
+      )
       .map((entry) => entry.key),
     paramDeletionKeys: diff.paramDeletions
-      .filter((entry) => values[checkboxName("param-delete", entry.key)] === true)
+      .filter(
+        (entry) =>
+          values[allCheckboxName("param-delete")] === true ||
+          values[checkboxName("param-delete", entry.key)] === true,
+      )
       .map((entry) => entry.key),
   };
 }
@@ -516,6 +560,10 @@ function checkboxName(
   key: string,
 ): string {
   return `${prefix}:${key}`;
+}
+
+function allCheckboxName(prefix: "add" | "delete" | "param-add" | "param-delete"): string {
+  return `${prefix}:all`;
 }
 
 async function applySelectedChanges(
