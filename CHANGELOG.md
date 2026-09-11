@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0](https://github.com/anteo/yaak-plugin-openapi-sync/compare/v0.2.1...v0.3.0) (2026-09-11)
+
+### Features
+
+* **sync:** add bulk change selection ([4179185](https://github.com/anteo/yaak-plugin-openapi-sync/commit/4179185b28f226a8e8197e261cd714d3352bf17d))
+
 ## [0.2.1](https://github.com/anteo/yaak-plugin-openapi-sync/compare/v0.2.0...v0.2.1) (2026-09-11)
 
 ### Bug Fixes
