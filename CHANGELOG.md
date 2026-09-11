@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1](https://github.com/anteo/yaak-plugin-openapi-sync/compare/v0.2.0...v0.2.1) (2026-09-11)
+
+### Bug Fixes
+
+* **sync:** retry OpenAPI fetch without response path ([10dfebd](https://github.com/anteo/yaak-plugin-openapi-sync/commit/10dfebd1f0cf56c10f20656be99763c0f0c8e375))
+
 ## [0.2.0](https://github.com/anteo/yaak-plugin-openapi-sync/compare/v0.1.0...v0.2.0) (2026-06-23)
 
 ### Features
