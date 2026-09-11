@@ -40,7 +40,7 @@ Yaak plugin that compares the active workspace with a remote OpenAPI document an
 
 ## Notes
 
-- The plugin uses Yaak's HTTP request API to fetch the remote spec
+- The plugin uses Yaak's HTTP request API to fetch the remote spec. If a Yaak runtime does not expose the temporary response body to plugins, it retries the GET with the Node runtime's fetch API.
 - Folder structure is created only as needed for selected additions
 - The last entered OpenAPI URL is stored in plugin storage and used as the next default
 - Matching is done by normalized `METHOD + path`, so host differences do not create separate endpoints

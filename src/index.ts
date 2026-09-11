@@ -171,11 +171,21 @@ async function fetchOpenApiSpec(ctx: Context, specUrl: string): Promise<string> 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Failed to fetch OpenAPI spec with status ${response.status}`);
   }
-  if (response.bodyPath == null) {
-    throw new Error("OpenAPI spec response did not include a readable body");
+  if (response.bodyPath != null) {
+    return readFileSync(response.bodyPath, "utf8");
   }
 
-  return readFileSync(response.bodyPath, "utf8");
+  // Some Yaak runtime versions return an in-memory response without exposing a
+  // body path to plugins. Re-fetch only in that case so a valid spec is not
+  // rejected merely because its temporary response file is unavailable.
+  const fallbackResponse = await fetch(specUrl, {
+    headers: { Accept: "application/json, application/yaml, text/yaml, */*" },
+  });
+  if (!fallbackResponse.ok) {
+    throw new Error(`Failed to fetch OpenAPI spec with status ${fallbackResponse.status}`);
+  }
+
+  return fallbackResponse.text();
 }
 
 function filterHttpOnlyResources(resources: PartialImportResources): PartialImportResources {
