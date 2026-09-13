@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type {
   Context,
   DynamicPromptFormArg,
@@ -155,7 +154,7 @@ function createSyncAction(): WorkspaceActionPlugin {
 }
 
 async function fetchOpenApiSpec(ctx: Context, specUrl: string): Promise<string> {
-  const response = await ctx.httpRequest.send({
+  const { httpResponse, body } = await ctx.httpRequest.send({
     httpRequest: {
       method: "GET",
       url: specUrl,
@@ -165,27 +164,14 @@ async function fetchOpenApiSpec(ctx: Context, specUrl: string): Promise<string> 
     },
   });
 
-  if (response.error) {
-    throw new Error(`Failed to fetch OpenAPI spec: ${response.error}`);
+  if (httpResponse.error) {
+    throw new Error(`Failed to fetch OpenAPI spec: ${httpResponse.error}`);
   }
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`Failed to fetch OpenAPI spec with status ${response.status}`);
-  }
-  if (response.bodyPath != null) {
-    return readFileSync(response.bodyPath, "utf8");
+  if (httpResponse.status < 200 || httpResponse.status >= 300) {
+    throw new Error(`Failed to fetch OpenAPI spec with status ${httpResponse.status}`);
   }
 
-  // Some Yaak runtime versions return an in-memory response without exposing a
-  // body path to plugins. Re-fetch only in that case so a valid spec is not
-  // rejected merely because its temporary response file is unavailable.
-  const fallbackResponse = await fetch(specUrl, {
-    headers: { Accept: "application/json, application/yaml, text/yaml, */*" },
-  });
-  if (!fallbackResponse.ok) {
-    throw new Error(`Failed to fetch OpenAPI spec with status ${fallbackResponse.status}`);
-  }
-
-  return fallbackResponse.text();
+  return body.text();
 }
 
 function filterHttpOnlyResources(resources: PartialImportResources): PartialImportResources {
